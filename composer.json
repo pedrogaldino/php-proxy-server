@@ -1,0 +1,37 @@
+{
+    "name": "pedrogaldino/php-proxy-server",
+    "description": "Servidor de proxy com suporte a HTTP(S) implementado em PHP",
+    "keywords": [
+        "php",
+        "proxy",
+        "http-proxy",
+        "https-proxy",
+        "php-proxy"
+    ],
+    "homepage": "http://pedrogaldino.com",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Pedro Galdino",
+            "email": "eu@pedrogaldino.com",
+            "role": "developer"
+        }
+    ],
+    "require": {
+        "react/event-loop": "^1.1",
+        "react/http": "^0.8.6",
+        "guzzlehttp/guzzle": "~6.0",
+        "tightenco/collect": "^7.3",
+        "ext-json": "*",
+        "react/http-client": "^0.5.10"
+    },
+    "autoload": {
+        "psr-4": { "Galdino\\Proxy\\" : "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Galdino\\Proxy\\Tests\\" : "test/" }
+    },
+    "require-dev": {
+        "seregazhuk/php-watcher": "^0.5.2"
+    }
+}
