@@ -4,8 +4,120 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6440243c7182141e64556ed5ed0217c3",
+    "content-hash": "be23172e824d7639b7a3d0eddda99ced",
     "packages": [
+        {
+            "name": "clue/buzz-react",
+            "version": "v2.7.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/clue/reactphp-buzz.git",
+                "reference": "ca9537cb5ab7b5aaebe93429980a17cf4ead32b7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/clue/reactphp-buzz/zipball/ca9537cb5ab7b5aaebe93429980a17cf4ead32b7",
+                "reference": "ca9537cb5ab7b5aaebe93429980a17cf4ead32b7",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3",
+                "psr/http-message": "^1.0",
+                "react/event-loop": "^1.0 || ^0.5",
+                "react/http-client": "^0.5.10",
+                "react/promise": "^2.2.1 || ^1.2.1",
+                "react/promise-stream": "^1.0 || ^0.1.1",
+                "react/socket": "^1.1",
+                "react/stream": "^1.0 || ^0.7",
+                "ringcentral/psr7": "^1.2"
+            },
+            "require-dev": {
+                "clue/block-react": "^1.0",
+                "clue/http-proxy-react": "^1.3",
+                "clue/reactphp-ssh-proxy": "^1.0",
+                "clue/socks-react": "^1.0",
+                "phpunit/phpunit": "^7.0 || ^6.4 || ^5.7 || ^4.8.35",
+                "react/http": "^0.8"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Clue\\React\\Buzz\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Christian Lück",
+                    "email": "christian@clue.engineering"
+                }
+            ],
+            "description": "Simple, async PSR-7 HTTP client for concurrently processing any number of HTTP requests, built on top of ReactPHP",
+            "homepage": "https://github.com/clue/reactphp-buzz",
+            "keywords": [
+                "async",
+                "http",
+                "http client",
+                "psr-7",
+                "reactphp"
+            ],
+            "time": "2020-02-26T12:05:32+00:00"
+        },
+        {
+            "name": "clue/http-proxy-react",
+            "version": "v1.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/clue/reactphp-http-proxy.git",
+                "reference": "5a6790443366dada996993c0a458f13e616fe10e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/clue/reactphp-http-proxy/zipball/5a6790443366dada996993c0a458f13e616fe10e",
+                "reference": "5a6790443366dada996993c0a458f13e616fe10e",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3",
+                "react/promise": " ^2.1 || ^1.2.1",
+                "react/socket": "^1.1",
+                "ringcentral/psr7": "^1.2"
+            },
+            "require-dev": {
+                "clue/block-react": "^1.1",
+                "phpunit/phpunit": "^5.0 || ^4.8",
+                "react/event-loop": "^1.0 || ^0.5 || ^0.4 || ^0.3"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Clue\\React\\HttpProxy\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Christian Lück",
+                    "email": "christian@lueck.tv"
+                }
+            ],
+            "description": "Async HTTP proxy connector, use any TCP/IP-based protocol through an HTTP CONNECT proxy server, built on top of ReactPHP",
+            "homepage": "https://github.com/clue/reactphp-http-proxy",
+            "keywords": [
+                "async",
+                "connect",
+                "http",
+                "proxy",
+                "reactphp"
+            ],
+            "time": "2018-10-30T14:41:14+00:00"
+        },
         {
             "name": "evenement/evenement",
             "version": "v3.0.1",

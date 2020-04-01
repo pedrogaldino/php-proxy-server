@@ -178,13 +178,16 @@ class ProxyServer
                                     return;
                                 }
 
-                                $response = $newRequest->getResponse();
-
-                                $callBeforeClientResponse($newRequest, $response, function ($request, $response) use($resolve, $reject) {
-                                    $resolve(
-                                        $this->prepareNativeResponse($response)
-                                    );
-                                });
+                                $newRequest
+                                    ->getResponse($this->getLoop())
+                                    ->then(function (\Galdino\Proxy\Server\Response $response) use($newRequest, $callBeforeClientResponse, $resolve, $reject) {
+                                        $callBeforeClientResponse($newRequest, $response, function ($request, $response) use($resolve, $reject) {
+                                            $resolve(
+                                                $this->prepareNativeResponse($response)
+                                            );
+                                        });
+                                    })
+                                    ->otherwise($reject);
                             })->otherwise($reject);
                     })->otherwise($reject);
             } catch (\Exception $exception) {

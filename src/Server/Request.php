@@ -3,13 +3,16 @@
 
 namespace Galdino\Proxy\Server;
 
-use GuzzleHttp\Client;
+use Clue\React\HttpProxy\ProxyConnector;
 use GuzzleHttp\TransferStats;
 use Galdino\Proxy\Server\Contracts\ManipulateCookiesContract;
 use Galdino\Proxy\Server\Contracts\ManipulateHeadersContract;
 use Galdino\Proxy\Server\Traits\ManipulateCookies;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\UriInterface;
+use React\EventLoop\LoopInterface;
+use React\Promise\Promise;
+use React\Socket\Connector;
 
 class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 {
@@ -232,107 +235,91 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
         return $this->form;
     }
 
-//    public function parseBody()
-//    {
-//        $body = null;
-//
-//        if($this->isMultipartForm()) {
-//            $body['multipart'] = [];
-//
-//            $this
-//                ->unsetHeader('Content-Type')
-//                ->unsetHeader('content-type');
-//
-//            if(!empty($this->getFiles())) {
-//                $body['multipart'] = $this->getFiles();
-//            }
-//
-//            foreach($this->getFormFields() as $key => $value) {
-//                $body['multipart'][] = [
-//                    'name' => $key,
-//                    'contents' => $value
-//                ];
-//            }
-//        } else if ($this->isFormRequest()) {
-//            $body['form_params'] = $this->getFormFields();
-//        } else {
-//            $body = [
-//                'body' => $this->getBody()
-//            ];
-//        }
-//
-//        return $body;
-//    }
-
-    public function getResponse(\Closure $onHeaders = null, \Closure $onStats = null) : Response
+    public function getResponse(LoopInterface $loop) : Promise
     {
-        $client = new Client();
-        $response = new Response();
+        return new Promise(function ($resolve, $reject) use($loop) {
+            $response = new Response();
 
-        try {
-            $clientResponse = $client->request($this->getMethod(), $this->getUri(), [
-                'headers' => $this->getHeaders(),
-                'allow_redirects' => false,
-                'connect_timeout' => 0,
-                'debug' => $this->isDebug(),
-                'decode_content' => true,
-                'http_errors' => false,
-                'proxy' => $this->getProxy(),
-                'query' => $this->getQuery(),
-                'verify' => false,
-                'body' => $this->getBody(),
-                'on_headers' => function (ResponseInterface $response) use(&$onHeaders){
-                    if(!empty($onHeaders)) {
-                        $onHeaders($response);
-                    }
-                },
-                'on_stats' => function (TransferStats $stats) use(&$response, &$onStats) {
-                    $response
-                        ->setUri($stats->getEffectiveUri())
-                        ->setTransferTime($stats->getTransferTime());
+            $connector = new Connector($loop, array(
+                'tls' => array(
+                    'verify_peer' => false,
+                    'verify_peer_name' => false
+                )
+            ));
 
-                    if(!empty($onStats)) {
-                        $onStats($stats);
-                    }
-                },
-                'progress' => function(...$args) use(&$onProgress) {
-                    if(!empty($this->onProgress)) {
-                        $progress = $this->onProgress;
-                        $progress($args);
-                    }
+            if($this->getProxy()) {
+                $proxy = new ProxyConnector($this->getProxy(), new Connector($loop, array(
+                    'tls' => array(
+                        'verify_peer' => false,
+                        'verify_peer_name' => false
+                    )
+                )));
+
+                if(strpos((string) $this->getUri(), 'https') == 0) {
+                    $connector = new Connector($loop, array(
+                        'tcp' => $proxy,
+                        'tls' => array(
+                            'verify_peer' => false,
+                            'verify_peer_name' => false
+                        )
+                    ));
+                } else {
+                    $connector = $proxy;
                 }
+            }
+
+            $browser = new \Galdino\Proxy\Extra\Browser($loop, $connector);
+
+            $browser->withOptions([
+                'timeout' => null,
+                'followRedirects' => false,
+                'obeySuccessCode' => true,
+                'streaming' => false
             ]);
 
-            $response
-                ->setStatusCode($clientResponse->getStatusCode())
-                ->mergeHeaders($clientResponse->getHeaders())
-                ->setBody($clientResponse->getBody()->getContents());
-        } catch (\Exception $exception) {
-            $body = [
-                'error' => true,
-                'message' => $exception->getMessage(),
-                'type' => get_class($exception)
-            ];
+            print 'Making the request' . PHP_EOL;
 
-            if($this->showStatckTraceOnExceptions) {
-                $body = array_merge($body, [
-                    'stack_trace' => $exception->getTraceAsString()
-                ]);
-            }
+            $browser
+                ->request($this->getMethod(), $this->getUri(), $this->getHeaders(), $this->getBody())
+                ->then(function (ResponseInterface $browserResponse) use ($response, $resolve) {
+                    print 'Request finished' . PHP_EOL;
 
-            $response
-                ->setStatusCode($exception->getCode() ?: 506)
-                ->setHeader('Content-Type', 'application/json')
-                ->setBody(json_encode($body));
-        }
+                    foreach ($this->getHeaders() as $name => $value) {
+                        if (strpos($name, '_Proxy') === 0) {
+                            $response->addHeader($name, $value);
+                        }
+                    }
 
-        foreach ($this->getHeaders() as $name => $value) {
-            if (strpos($name, '_Proxy') === 0) {
-                $response->addHeader($name, $value);
-            }
-        }
+                    $response
+                        ->setUri($this->getUri())
+                        ->setStatusCode($browserResponse->getStatusCode())
+                        ->mergeHeaders($browserResponse->getHeaders())
+                        ->setBody($browserResponse->getBody()->getContents());
 
-        return $response;
+                    $resolve($response);
+                }, function (\Exception $exception) use($response, $resolve) {
+                    print 'Request error ' . $exception->getMessage() . PHP_EOL;
+
+                    $body = [
+                        'error' => true,
+                        'message' => $exception->getMessage(),
+                        'type' => get_class($exception)
+                    ];
+
+                    if($this->showStatckTraceOnExceptions) {
+                        $body = array_merge($body, [
+                            'stack_trace' => $exception->getTraceAsString()
+                        ]);
+                    }
+
+                    $response
+                        ->setStatusCode($exception->getCode() ?: 506)
+                        ->setHeader('Content-Type', 'application/json')
+                        ->setBody(json_encode($body));
+
+                    $resolve($response);
+                });
+        });
     }
 
 }
