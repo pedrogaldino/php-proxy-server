@@ -241,18 +241,14 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
             $response = new Response();
 
             $connector = new Connector($loop, array(
-                'tls' => array(
-                    'verify_peer' => false,
-                    'verify_peer_name' => false
-                )
+                'dns' => '8.8.8.8'
             ));
+
+            $this->setProxy('http://lum-customer-rfreire-zone-intimaibr:q94rxufs02sp@zproxy.lum-superproxy.io:22225');
 
             if($this->getProxy()) {
                 $proxy = new ProxyConnector($this->getProxy(), new Connector($loop, array(
-                    'tls' => array(
-                        'verify_peer' => false,
-                        'verify_peer_name' => false
-                    )
+                    'dns' => '8.8.8.8'
                 )));
 
                 if(strpos((string) $this->getUri(), 'https') == 0) {
@@ -261,10 +257,14 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                         'tls' => array(
                             'verify_peer' => false,
                             'verify_peer_name' => false
-                        )
+                        ),
+                        'dns' => '8.8.8.8'
                     ));
                 } else {
-                    $connector = $proxy;
+                    $connector = new Connector($loop, array(
+                        'tcp' => $proxy,
+                        'dns' => '8.8.8.8'
+                    ));
                 }
             }
 
@@ -299,6 +299,8 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                     $resolve($response);
                 }, function (\Exception $exception) use($response, $resolve) {
                     print 'Request error ' . $exception->getMessage() . PHP_EOL;
+
+                    dump($exception);
 
                     $body = [
                         'error' => true,
