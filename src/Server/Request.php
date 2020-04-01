@@ -240,35 +240,7 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
         return new Promise(function ($resolve, $reject) use($loop) {
             $response = new Response();
 
-            $connector = new Connector($loop, array(
-                'dns' => '8.8.8.8'
-            ));
-
-            $this->setProxy('http://lum-customer-rfreire-zone-intimaibr:q94rxufs02sp@zproxy.lum-superproxy.io:22225');
-
-            if($this->getProxy()) {
-                $proxy = new ProxyConnector($this->getProxy(), new Connector($loop, array(
-                    'dns' => '8.8.8.8'
-                )));
-
-                if(strpos((string) $this->getUri(), 'https') == 0) {
-                    $connector = new Connector($loop, array(
-                        'tcp' => $proxy,
-                        'tls' => array(
-                            'verify_peer' => false,
-                            'verify_peer_name' => false
-                        ),
-                        'dns' => '8.8.8.8'
-                    ));
-                } else {
-                    $connector = new Connector($loop, array(
-                        'tcp' => $proxy,
-                        'dns' => '8.8.8.8'
-                    ));
-                }
-            }
-
-            $browser = new \Galdino\Proxy\Extra\Browser($loop, $connector);
+            $browser = new \Galdino\Proxy\Extra\Browser($loop, $this->getProxy());
 
             $browser->withOptions([
                 'timeout' => null,

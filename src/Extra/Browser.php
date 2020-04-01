@@ -7,7 +7,6 @@ use Psr\Http\Message\UriInterface;
 use React\EventLoop\LoopInterface;
 use React\Promise\PromiseInterface;
 use React\Socket\Connector;
-use React\Socket\ConnectorInterface;
 use React\Stream\ReadableStreamInterface;
 
 class Browser extends \Clue\React\Buzz\Browser
@@ -46,8 +45,7 @@ class Browser extends \Clue\React\Buzz\Browser
                 'tls' => array(
                     'verify_peer' => false,
                     'verify_peer_name' => false
-                ),
-                'dns' => false
+                )
             ));
         }
 
@@ -99,6 +97,11 @@ class Browser extends \Clue\React\Buzz\Browser
     public function post($url, array $headers = array(), $contents = '')
     {
         return $this->send($this->messageFactory->request('POST', $url, $headers, $contents));
+    }
+
+    public function request($method, $url, array $headers = array(), $contents = '')
+    {
+        return $this->send($this->messageFactory->request($method, $url, $headers, $contents));
     }
 
     /**
