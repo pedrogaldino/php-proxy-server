@@ -27,6 +27,8 @@ class Client extends \React\HttpClient\Client
     {
         $requestData = new \Galdino\Proxy\Extra\HttpProtocol\RequestData($method, $url, $headers, $protocolVersion, $proxy);
 
+        dump((string) $requestData);
+
         return new Request($this->connector, $requestData);
     }
 }

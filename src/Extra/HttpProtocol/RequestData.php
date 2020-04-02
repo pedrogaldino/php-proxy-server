@@ -11,6 +11,11 @@ class RequestData extends \React\HttpClient\RequestData
     public function __construct($method, $url, array $headers = array(), $protocolVersion = '1.0', $proxy = null)
     {
         $this->url = $url;
+
+        if(strpos($proxy, 'http') !== 0) {
+            $proxy = 'http://' . $proxy;
+        }
+
         $this->proxy = $proxy;
 
         if($this->proxy && strpos($this->url, 'http://') === 0) {
@@ -31,6 +36,7 @@ class RequestData extends \React\HttpClient\RequestData
         if($this->proxy && strpos($this->url, 'http://') === 0) {
             return $this->url;
         }
+
         return parent::getPath();
     }
 }
