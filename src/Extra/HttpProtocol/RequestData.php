@@ -18,6 +18,10 @@ class RequestData extends \React\HttpClient\RequestData
 
         $this->proxy = $proxy;
 
+        if(isset($headers['host'])) {
+            unset($headers['host']);
+        }
+
         if($this->proxy && strpos($this->url, 'http://') === 0) {
             $proxy = parse_url($this->proxy);
 
