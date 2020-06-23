@@ -242,12 +242,23 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
             $browser = new \Galdino\Proxy\Extra\Browser($loop, $this->getProxy());
 
-            $browser->withOptions([
-                'timeout' => null,
-                'followRedirects' => false,
-                'obeySuccessCode' => true,
-                'streaming' => false
-            ]);
+            $requestOptions = json_decode($this->getHeader('ProxyRequestOptions', '{}'), true);
+
+            $defaultOptions = array_merge(
+                [
+                    'timeout' => null,
+                    'followRedirects' => false,
+                    'obeySuccessCode' => true,
+                    'streaming' => false
+                ],
+                $requestOptions
+            );
+
+            $browser->withOptions($defaultOptions);
+
+            print 'Request options: ' . PHP_EOL;
+
+            dump($defaultOptions);
 
             print 'Making the request' . PHP_EOL;
 
