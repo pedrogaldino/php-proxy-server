@@ -242,7 +242,10 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
             $browser = new \Galdino\Proxy\Extra\Browser($loop, $this->getProxy());
 
-            $requestOptions = json_decode($this->getHeader('ProxyRequestOptions', '{}'), true);
+            $requestOptions = [];
+            if ($this->hasHeader('ProxyRequestOptions')) {
+                $requestOptions = $this->getHeader('ProxyRequestOptions', '{}')[0];
+            }
 
             $defaultOptions = array_merge(
                 [
@@ -251,10 +254,10 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                     'obeySuccessCode' => true,
                     'streaming' => false
                 ],
-                $requestOptions
+                json_decode($requestOptions, true)
             );
 
-            $browser->withOptions($defaultOptions);
+            $browser = $browser->withOptions($defaultOptions);
 
             print 'Request options: ' . PHP_EOL;
 
