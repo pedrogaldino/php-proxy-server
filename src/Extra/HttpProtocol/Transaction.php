@@ -182,11 +182,11 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
     }
 
     /**
-     * @internal
      * @param ResponseInterface $response
      * @param RequestInterface $request
-     * @throws ResponseException
+     * @param $deferred
      * @return ResponseInterface|PromiseInterface
+     * @internal
      */
     public function onResponse(ResponseInterface $response, RequestInterface $request, $deferred)
     {
@@ -195,7 +195,6 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
         // follow 3xx (Redirection) response status codes if Location header is present and not explicitly disabled
         // @link https://tools.ietf.org/html/rfc7231#section-6.4
         if ($this->followRedirects && ($response->getStatusCode() >= 300 && $response->getStatusCode() < 400) && $response->hasHeader('Location')) {
-            dd($this);
             return $this->onResponseRedirect($response, $request, $deferred);
         }
 
@@ -211,8 +210,8 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
     /**
      * @param ResponseInterface $response
      * @param RequestInterface $request
+     * @param Deferred $deferred
      * @return PromiseInterface
-     * @throws \RuntimeException
      */
     private function onResponseRedirect(ResponseInterface $response, RequestInterface $request, Deferred $deferred)
     {
