@@ -205,7 +205,7 @@ class ProxyServer
                 $rawBody .= $data;
             });
 
-            $request->getBody()->on('end', function () use ($resolve, $reject, $request, &$rawBody){
+            $request->getBody()->on('close', function () use ($resolve, $reject, $request, &$rawBody){
                 $request = $this->prepareRequest($request, $rawBody);
 
                 $this

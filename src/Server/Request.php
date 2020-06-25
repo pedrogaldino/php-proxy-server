@@ -242,7 +242,7 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
             $browser = new \Galdino\Proxy\Extra\Browser($loop, $this->getProxy());
 
-            $requestOptions = [];
+            $requestOptions = '{}';
             if ($this->hasHeader('ProxyRequestOptions')) {
                 $requestOptions = $this->getHeader('ProxyRequestOptions', '{}')[0];
             }
@@ -258,10 +258,6 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
             );
 
             $browser = $browser->withOptions($defaultOptions);
-
-            print 'Request options: ' . PHP_EOL;
-
-            dump($defaultOptions);
 
             print 'Making the request' . PHP_EOL;
 
