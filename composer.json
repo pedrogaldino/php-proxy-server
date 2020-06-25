@@ -24,7 +24,7 @@
         "tightenco/collect": "^7.3",
         "ext-json": "*",
         "react/http-client": "^0.5.10",
-        "clue/buzz-react": "^2.7",
+        "clue/buzz-react": "^2.8",
         "clue/http-proxy-react": "^1.4"
     },
     "autoload": {
