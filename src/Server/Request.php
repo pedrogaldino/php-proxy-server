@@ -18,6 +18,10 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 {
     use ManipulateCookies;
 
+    protected $requestDateStartTime;
+
+    protected $requestTime;
+
     protected $method;
 
     protected $uri;
@@ -191,6 +195,41 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
         return $this;
     }
 
+    /**
+     * @return mixed
+     */
+    public function getRequestDateStartTime()
+    {
+        return $this->requestDateStartTime;
+    }
+
+    /**
+     * @param mixed $requestDateStartTime
+     * @return Request
+     */
+    public function setRequestDateStartTime($requestDateStartTime)
+    {
+        $this->requestDateStartTime = $requestDateStartTime;
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getRequestTime()
+    {
+        return $this->requestTime;
+    }
+
+    /**
+     * @param mixed $requestTime
+     * @return Request
+     */
+    public function setRequestTime($requestTime)
+    {
+        $this->requestTime = $requestTime;
+        return $this;
+    }
 
     public function addFile($fieldName, $file, $filename, $fileType = null, $headers = [])
     {
@@ -265,6 +304,17 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                 ->request($this->getMethod(), $this->getUri(), $this->getHeaders(), $this->getBody())
                 ->then(function (ResponseInterface $browserResponse) use ($response, $resolve) {
                     print 'Request finished' . PHP_EOL;
+
+                    if ($this->getRequestDateStartTime()) {
+                        $start = strtotime($this->getRequestDateStartTime());
+                        $end = strtotime(date('Y-m-d H:i:s'));
+
+                        $diff = (abs($start - $end) / 86400);
+
+                        $diff = (int) (($diff * 100000) * 1000);
+
+                        $this->setRequestTime($diff);
+                    }
 
                     foreach ($this->getHeaders() as $name => $value) {
                         if (strpos($name, '_Proxy') === 0) {
