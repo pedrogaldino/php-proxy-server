@@ -95,7 +95,7 @@ class ProxyServer
         return false;
     }
 
-    private function prepareRequest(ServerRequestInterface $serverRequest, $rawBody = null) : Request
+    private function prepareRequest(ServerRequestInterface $serverRequest, $rawBody = null, $requestDateStartTime = null) : Request
     {
         $request = new Request();
 
@@ -106,7 +106,8 @@ class ProxyServer
             ->setQuery($serverRequest->getQueryParams())
             ->setProxy($this->proxy)
             ->setDebug($this->debugRequests)
-            ->setBody($rawBody);
+            ->setBody($rawBody)
+            ->setRequestDateStartTime($requestDateStartTime);
 
 //        if($request->isMultipartForm()) {
 //            foreach ($serverRequest->getUploadedFiles() ?? [] as $key => $file) {
@@ -200,13 +201,14 @@ class ProxyServer
     {
         return new Promise(function ($resolve, $reject) use ($request) {
             $rawBody = null;
+            $requestDateStartTime = date('Y-m-d H:i:s');
 
             $request->getBody()->on('data', function ($data) use (&$rawBody) {
                 $rawBody .= $data;
             });
 
-            $request->getBody()->on('close', function () use ($resolve, $reject, $request, &$rawBody){
-                $request = $this->prepareRequest($request, $rawBody);
+            $request->getBody()->on('end', function () use ($resolve, $reject, $request, &$rawBody, $requestDateStartTime){
+                $request = $this->prepareRequest($request, $rawBody, $requestDateStartTime);
 
                 $this
                     ->proxyRequest($request)
