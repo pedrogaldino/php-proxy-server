@@ -281,20 +281,12 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
             $browser = new \Galdino\Proxy\Extra\Browser($loop, $this->getProxy());
 
-            $requestOptions = '{}';
-            if ($this->hasHeader('ProxyRequestOptions')) {
-                $requestOptions = $this->getHeader('ProxyRequestOptions', '{}')[0];
-            }
-
-            $defaultOptions = array_merge(
-                [
-                    'timeout' => null,
-                    'followRedirects' => false,
-                    'obeySuccessCode' => true,
-                    'streaming' => false
-                ],
-                json_decode($requestOptions, true)
-            );
+            $defaultOptions = [
+                'timeout' => 7200,
+                'followRedirects' => false,
+                'obeySuccessCode' => true,
+                'streaming' => false
+            ];
 
             $browser = $browser->withOptions($defaultOptions);
 
@@ -305,16 +297,7 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                 ->then(function (ResponseInterface $browserResponse) use ($response, $resolve) {
                     print 'Request finished' . PHP_EOL;
 
-                    if ($this->getRequestDateStartTime()) {
-                        $start = strtotime($this->getRequestDateStartTime());
-                        $end = strtotime(date('Y-m-d H:i:s'));
-
-                        $diff = (abs($start - $end) / 86400);
-
-                        $diff = (int) (($diff * 100000) * 1000);
-
-                        $this->setRequestTime($diff);
-                    }
+                    $this->setRequestEndTime();
 
                     foreach ($this->getHeaders() as $name => $value) {
                         if (strpos($name, '_Proxy') === 0) {
@@ -333,6 +316,8 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                     print 'Request error ' . $exception->getMessage() . PHP_EOL;
 
                     dump($exception);
+
+                    $this->setRequestEndTime();
 
                     $body = [
                         'error' => true,
@@ -356,4 +341,17 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
         });
     }
 
+    public function setRequestEndTime()
+    {
+        if ($this->getRequestDateStartTime()) {
+            $start = strtotime($this->getRequestDateStartTime());
+            $end = strtotime(date('Y-m-d H:i:s'));
+
+            $diff = (abs($start - $end) / 86400);
+
+            $diff = (int) (($diff * 100000) * 1000);
+
+            $this->setRequestTime($diff);
+        }
+    }
 }
