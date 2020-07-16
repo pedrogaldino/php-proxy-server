@@ -11,9 +11,9 @@ class ProxyMiddleware implements RequestInterceptorContract
 
     public function onError($exception, Request $request = null, Response $response = null) : Promise
     {
-        return new \React\Promise\Promise(function($resolve, $reject) use($request) {
+        return new \React\Promise\Promise(function($resolve, $reject) use($exception) {
             print 'Received an error!' . PHP_EOL;
-            $resolve($request);
+            $reject($exception);
         });
     }
 
