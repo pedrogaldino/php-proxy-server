@@ -29,7 +29,9 @@ class Browser extends \Clue\React\Buzz\Browser
                 'tls' => array(
                     'verify_peer' => false,
                     'verify_peer_name' => false
-                )
+                ),
+                'happy_eyeballs' => false,
+                'timeout' => 600.0
             ]));
 
             $connector = new Connector($loop, array(
@@ -38,14 +40,18 @@ class Browser extends \Clue\React\Buzz\Browser
                     'verify_peer' => false,
                     'verify_peer_name' => false
                 ),
-                'dns' => false
+                'dns' => false,
+                'happy_eyeballs' => false,
+                'timeout' => 600.0
             ));
         } else {
             $connector = new Connector($loop, array(
                 'tls' => array(
                     'verify_peer' => false,
                     'verify_peer_name' => false
-                )
+                ),
+                'happy_eyeballs' => false,
+                'timeout' => 600.0
             ));
         }
 

@@ -242,7 +242,9 @@ class ProxyServer
             'tls' => array(
                 'verify_peer' => false,
                 'verify_peer_name' => false
-            )
+            ),
+            'happy_eyeballs' => false,
+            'timeout' => 600.0
         ]);
 
         $server = new StreamingServer([
