@@ -275,7 +275,12 @@ class ProxyServer
             }
         ]);
 
-        $socket = new \React\Socket\Server('0.0.0.0:8001', $this->getLoop());
+        $socket = new \React\Socket\Server('0.0.0.0:8001', $this->getLoop(), [
+            'tls' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            )
+        ]);
 
         $server->listen($socket);
 
@@ -307,7 +312,12 @@ class ProxyServer
             }
         ]);
 
-        $socket = new \React\Socket\Server('0.0.0.0:8002', $this->getLoop());
+        $socket = new \React\Socket\Server('0.0.0.0:8002', $this->getLoop(), [
+            'tls' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            )
+        ]);
         $socket = new \React\Socket\SecureServer($socket, $this->getLoop(), [
             'local_cert' => realpath(
                 __DIR__ . DIRECTORY_SEPARATOR .
