@@ -188,7 +188,21 @@ class ProxyServer
                                             );
                                         });
                                     })
-                                    ->otherwise($reject);
+                                    ->otherwise(function ($result) use($newRequest, $callBeforeClientResponse, $resolve, $reject) {
+
+                                        $callBeforeClientResponse($newRequest, $result[1], function ($request, $response) use($resolve, $reject, $result) {
+
+                                            $this
+                                                ->interceptor
+                                                ->onError($result[0], $request, $response)
+                                                ->then(function () use ($request, $response, $resolve) {
+                                                    $resolve(
+                                                        $this->prepareNativeResponse($response)
+                                                    );
+                                                })
+                                                ->otherwise($reject);
+                                        });
+                                    });
                             })->otherwise($reject);
                     })->otherwise($reject);
             } catch (\Exception $exception) {
