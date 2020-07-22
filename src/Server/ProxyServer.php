@@ -180,7 +180,7 @@ class ProxyServer
                                 }
 
                                 $newRequest
-                                    ->getResponse($this->getLoop())
+                                    ->getResponse($this->getLoop(), $this->interceptor)
                                     ->then(function (\Galdino\Proxy\Server\Response $response) use($newRequest, $callBeforeClientResponse, $resolve, $reject) {
                                         $callBeforeClientResponse($newRequest, $response, function ($request, $response) use($resolve, $reject) {
                                             $resolve(

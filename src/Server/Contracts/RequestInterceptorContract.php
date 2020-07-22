@@ -23,6 +23,14 @@ interface RequestInterceptorContract {
     public function beforeProxyRequest(Request $request) : Promise;
 
     /**
+     * Called before retry the server's proxy request
+     * @param Request $request
+     * @param Response $response
+     * @return Promise
+     */
+    public function beforeRetryProxyRequest(Request $request, Response $response) : Promise;
+
+    /**
      * Called after server request and before the server respond to the client.
      * @param Request $request
      * @param Response $response The response object. You can manipulate it or return a new response to the client.

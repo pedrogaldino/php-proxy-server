@@ -5,6 +5,7 @@ namespace Galdino\Proxy\Server;
 
 use Galdino\Proxy\Server\Contracts\ManipulateCookiesContract;
 use Galdino\Proxy\Server\Contracts\ManipulateHeadersContract;
+use Galdino\Proxy\Server\Contracts\RequestInterceptorContract;
 use Galdino\Proxy\Server\Traits\ManipulateCookies;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\UriInterface;
@@ -290,15 +291,22 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
         return $this->form;
     }
 
-    public function makeRequest($loop, $callback, &$currentProxyIndex = 0)
+    public function makeRequest($loop, RequestInterceptorContract $interceptor, $callback, &$currentProxyIndex = 0)
     {
         $promise = new Promise(function ($resolve, $reject) use ($loop, $currentProxyIndex) {
 
-            $currentProxy = $this->proxyList[$currentProxyIndex];
+            $currentProxy = null;
+            $proxyUrl = null;
+            if (count($this->proxyList)) {
+                $currentProxy = $this->proxyList[$currentProxyIndex];
 
-            $this->addCookie('SelectedProxyId', $currentProxy['id']);
+//                dump('currentProxy: ', $currentProxy);
 
-            $browser = new \Galdino\Proxy\Extra\Browser($loop, $currentProxy['proxy_url']);
+                $this->addCookie('SelectedProxyId', $currentProxy['id']);
+                $proxyUrl = $currentProxy['proxy_url'];
+            }
+
+            $browser = new \Galdino\Proxy\Extra\Browser($loop, $proxyUrl);
 
             $defaultOptions = [
                 'timeout' => 7200,
@@ -363,16 +371,22 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
         });
 
         $promise
-            ->then(function (Response $response) use ($callback) {
+            ->then(function (Response $response) use ($callback, $interceptor) {
                 $callback($response);
             })
-            ->otherwise(function($result) use ($loop, &$currentProxyIndex, $callback) {
+            ->otherwise(function($result) use ($loop, $interceptor, &$currentProxyIndex, $callback) {
 
                 $currentProxyIndex++;
 
                 if (($currentProxyIndex + 1) <= count($this->getProxyList()))
                 {
-                    $this->makeRequest($loop, $callback, $currentProxyIndex);
+                    $this->setRequestDateStartTime(date('Y-m-d H:i:s'));
+
+                    $interceptor
+                        ->beforeRetryProxyRequest($this, $result[1])
+                        ->then(function () use ($loop, $interceptor, $callback, $currentProxyIndex) {
+                            $this->makeRequest($loop, $interceptor, $callback, $currentProxyIndex);
+                        });
                 }
                 else
                 {
@@ -381,10 +395,10 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
             });
     }
 
-    public function getResponse(LoopInterface $loop) : Promise
+    public function getResponse(LoopInterface $loop, RequestInterceptorContract $interceptor) : Promise
     {
-        return new Promise(function ($resolve, $reject) use($loop) {
-            $this->makeRequest($loop, function ($result) use ($resolve, $reject) {
+        return new Promise(function ($resolve, $reject) use($loop, $interceptor) {
+            $this->makeRequest($loop, $interceptor, function ($result) use ($resolve, $reject) {
                 if ($result instanceof Response) {
                     $resolve($result);
                 } else {
