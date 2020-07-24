@@ -3,16 +3,15 @@
 
 namespace Galdino\Proxy\Server;
 
-use Clue\React\HttpProxy\ProxyConnector;
-use GuzzleHttp\TransferStats;
 use Galdino\Proxy\Server\Contracts\ManipulateCookiesContract;
 use Galdino\Proxy\Server\Contracts\ManipulateHeadersContract;
+use Galdino\Proxy\Server\Contracts\RequestInterceptorContract;
 use Galdino\Proxy\Server\Traits\ManipulateCookies;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\UriInterface;
 use React\EventLoop\LoopInterface;
 use React\Promise\Promise;
-use React\Socket\Connector;
+use React\Promise\Deferred;
 
 class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 {
@@ -30,7 +29,7 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
     protected $headers = [];
 
-    protected $proxy;
+    protected $proxyList = [];
 
     protected $debug = false;
 
@@ -138,6 +137,24 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
     public function setQuery($query)
     {
         $this->query = $query;
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getProxyList(): array
+    {
+        return $this->proxyList;
+    }
+
+    /**
+     * @param array $proxyList
+     * @return Request
+     */
+    public function setProxyList(array $proxyList): Request
+    {
+        $this->proxyList = $proxyList;
         return $this;
     }
 
@@ -274,12 +291,23 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
         return $this->form;
     }
 
-    public function getResponse(LoopInterface $loop) : Promise
+    public function makeRequest($loop, RequestInterceptorContract $interceptor, $callback, &$currentProxyIndex = 0)
     {
-        return new Promise(function ($resolve, $reject) use($loop) {
-            $response = new Response();
+        $promise = new Promise(function ($resolve, $reject) use ($loop, $currentProxyIndex) {
 
-            $browser = new \Galdino\Proxy\Extra\Browser($loop, $this->getProxy());
+            $currentProxy = null;
+            $proxyUrl = null;
+            if (count($this->proxyList)) {
+                $currentProxy = $this->proxyList[$currentProxyIndex];
+
+//                dump('currentProxy: ', $currentProxy);
+
+                $this->unsetCookie('SelectedProxyId');
+                $this->addCookie('SelectedProxyId', $currentProxy['id']);
+                $proxyUrl = $currentProxy['proxy_url'];
+            }
+
+            $browser = new \Galdino\Proxy\Extra\Browser($loop, $proxyUrl);
 
             $defaultOptions = [
                 'timeout' => 7200,
@@ -290,11 +318,14 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
             $browser = $browser->withOptions($defaultOptions);
 
+            $response = new Response();
+
             print 'Making the request' . PHP_EOL;
 
             $browser
                 ->request($this->getMethod(), $this->getUri(), $this->getHeaders(), $this->getBody())
-                ->then(function (ResponseInterface $browserResponse) use ($response, $resolve) {
+                ->then(function (ResponseInterface $browserResponse) use ($response, $resolve, $reject) {
+
                     print 'Request finished' . PHP_EOL;
 
                     $this->setRequestEndTime();
@@ -312,7 +343,7 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                         ->setBody($browserResponse->getBody()->getContents());
 
                     $resolve($response);
-                }, function (\Exception $exception) use($response, $resolve) {
+                }, function (\Exception $exception) use($response, $resolve, $reject) {
                     print 'Request error ' . $exception->getMessage() . PHP_EOL;
 
                     dump($exception);
@@ -336,8 +367,45 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                         ->setHeader('Content-Type', 'application/json')
                         ->setBody(json_encode($body));
 
-                    $resolve($response);
+                    $reject([$exception, $response]);
                 });
+        });
+
+        $promise
+            ->then(function (Response $response) use ($callback, $interceptor) {
+                $callback($response);
+            })
+            ->otherwise(function($result) use ($loop, $interceptor, &$currentProxyIndex, $callback) {
+
+                $currentProxyIndex++;
+
+                if (($currentProxyIndex + 1) <= count($this->getProxyList()))
+                {
+                    $this->setRequestDateStartTime(date('Y-m-d H:i:s'));
+
+                    $interceptor
+                        ->beforeRetryProxyRequest($this, $result[1])
+                        ->then(function () use ($loop, $interceptor, $callback, $currentProxyIndex) {
+                            $this->makeRequest($loop, $interceptor, $callback, $currentProxyIndex);
+                        });
+                }
+                else
+                {
+                    $callback($result);
+                }
+            });
+    }
+
+    public function getResponse(LoopInterface $loop, RequestInterceptorContract $interceptor) : Promise
+    {
+        return new Promise(function ($resolve, $reject) use($loop, $interceptor) {
+            $this->makeRequest($loop, $interceptor, function ($result) use ($resolve, $reject) {
+                if ($result instanceof Response) {
+                    $resolve($result);
+                } else {
+                    $reject($result);
+                }
+            });
         });
     }
 
@@ -354,4 +422,5 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
             $this->setRequestTime($diff);
         }
     }
+
 }
