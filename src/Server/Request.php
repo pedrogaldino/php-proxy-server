@@ -302,6 +302,7 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
 //                dump('currentProxy: ', $currentProxy);
 
+                $this->unsetCookie('SelectedProxyId');
                 $this->addCookie('SelectedProxyId', $currentProxy['id']);
                 $proxyUrl = $currentProxy['proxy_url'];
             }
