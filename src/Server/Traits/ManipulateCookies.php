@@ -94,7 +94,9 @@ trait ManipulateCookies {
         $this->unsetCookiesHeaders();
 
         foreach ($cookies as $key => $value) {
-            $this->addCookie($key, $value);
+            if (!empty($key)) {
+                $this->addCookie($key, $value);
+            }
         }
 
         return $this;
