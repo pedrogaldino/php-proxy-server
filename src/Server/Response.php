@@ -48,8 +48,23 @@ class Response implements ManipulateHeadersContract, ManipulateCookiesContract
         ]);
 
         $cookies = $this->getHeader('set-cookie', []);
-
         $cookies[] = $cookie;
+
+        $cookies1 = $this->getHeader('Set-Cookie', []);
+        $cookies2 = $this->getHeader('Set-cookie', []);
+        $cookies3 = $this->getHeader('set-Cookie', []);
+
+        if (!empty($cookies1)) {
+            $cookies = array_merge($cookies, $cookies1);
+        }
+
+        if (!empty($cookies2)) {
+            $cookies = array_merge($cookies, $cookies2);
+        }
+
+        if (!empty($cookies3)) {
+            $cookies = array_merge($cookies, $cookies3);
+        }
 
         $this->mergeHeaders([
             'set-cookie' => $cookies
