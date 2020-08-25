@@ -3,6 +3,7 @@
 
 namespace Galdino\Proxy\Server;
 
+use Clue\React\Buzz\Message\ResponseException;
 use Galdino\Proxy\Server\Contracts\ManipulateCookiesContract;
 use Galdino\Proxy\Server\Contracts\ManipulateHeadersContract;
 use Galdino\Proxy\Server\Contracts\RequestInterceptorContract;
@@ -344,6 +345,7 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
                     $resolve($response);
                 }, function (\Exception $exception) use($response, $resolve, $reject) {
+
                     print 'Request error ' . $exception->getMessage() . PHP_EOL;
 
                     dump($exception);
@@ -355,6 +357,18 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                         'message' => $exception->getMessage(),
                         'type' => get_class($exception)
                     ];
+
+                    if ($exception instanceof ResponseException) {
+                        $content = $exception->getResponse()->getBody()->getContents();
+                        if (!empty($content)) {
+                            $contentJson = json_decode($content, true);
+                            if (!empty($contentJson)) {
+                                $body['json'] = $contentJson;
+                            } else {
+                                $body['json'] = $content;
+                            }
+                        }
+                    }
 
                     if($this->showStatckTraceOnExceptions) {
                         $body = array_merge($body, [
