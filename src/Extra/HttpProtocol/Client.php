@@ -3,12 +3,11 @@
 namespace Galdino\Proxy\Extra\HttpProtocol;
 
 use React\EventLoop\LoopInterface;
-use React\HttpClient\Request;
-use React\HttpClient\RequestData;
+use React\Http\Client\Request;
 use React\Socket\Connector;
 use React\Socket\ConnectorInterface;
 
-class Client extends \React\HttpClient\Client
+class Client extends \React\Http\Client\Client
 {
     private $connector;
 

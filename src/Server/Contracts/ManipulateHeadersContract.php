@@ -2,9 +2,8 @@
 
 namespace Galdino\Proxy\Server\Contracts;
 
-
-interface ManipulateHeadersContract {
-
+interface ManipulateHeadersContract
+{
     /**
      * @param string $name
      * @param string $value

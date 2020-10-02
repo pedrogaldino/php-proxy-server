@@ -2,7 +2,7 @@
 
 namespace Galdino\Proxy\Extra\HttpProtocol;
 
-class RequestData extends \React\HttpClient\RequestData
+class RequestData extends \React\Http\Client\RequestData
 {
     private $url;
 

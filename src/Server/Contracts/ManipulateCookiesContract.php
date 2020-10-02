@@ -2,8 +2,8 @@
 
 namespace Galdino\Proxy\Server\Contracts;
 
-interface ManipulateCookiesContract extends ManipulateHeadersContract {
-
+interface ManipulateCookiesContract extends ManipulateHeadersContract
+{
     /**
      * @param $name
      * @param $value

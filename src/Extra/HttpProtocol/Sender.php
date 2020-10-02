@@ -2,32 +2,31 @@
 
 namespace Galdino\Proxy\Extra\HttpProtocol;
 
-use Clue\React\Buzz\Io\ChunkedEncoder;
-use Clue\React\Buzz\Message\MessageFactory;
+use Psr\Http\Message\ResponseInterface;
+use React\Http\Io\ChunkedDecoder;
+use React\Http\Io\ChunkedEncoder;
 use Psr\Http\Message\RequestInterface;
 use React\EventLoop\LoopInterface;
-use React\HttpClient\Client as HttpClient;
-use React\HttpClient\Response as ResponseStream;
+use React\Http\Client\Client as HttpClient;
+use React\Http\Io\ReadableBodyStream;
 use React\Promise\Deferred;
 use React\Socket\ConnectorInterface;
 use React\Stream\ReadableStreamInterface;
 
-class Sender extends \Clue\React\Buzz\Io\Sender
+class Sender extends \React\Http\Io\Sender
 {
     private $http;
-    private $messageFactory;
 
-    public function __construct(HttpClient $http, MessageFactory $messageFactory)
+    public function __construct(Client $http)
     {
         $this->http = $http;
-        $this->messageFactory = $messageFactory;
 
-        parent::__construct($http, $messageFactory);
+        parent::__construct($http);
     }
 
-    public static function createFromLoop(LoopInterface $loop, ConnectorInterface $connector = null, MessageFactory $messageFactory = null)
+    public static function createFromLoop(LoopInterface $loop, ConnectorInterface $connector = null)
     {
-        return new self(new Client($loop, $connector), $messageFactory);
+        return new self(new Client($loop, $connector));
     }
 
     public function send(RequestInterface $request)
@@ -66,16 +65,18 @@ class Sender extends \Clue\React\Buzz\Io\Sender
             $deferred->reject($error);
         });
 
-        $messageFactory = $this->messageFactory;
-        $requestStream->on('response', function (ResponseStream $responseStream) use ($deferred, $messageFactory) {
-            // apply response header values from response stream
-            $deferred->resolve($messageFactory->response(
-                $responseStream->getVersion(),
-                $responseStream->getCode(),
-                $responseStream->getReasonPhrase(),
-                $responseStream->getHeaders(),
-                $responseStream
-            ));
+        $requestStream->on('response', function (ResponseInterface $response, ReadableStreamInterface $body) use ($deferred, $request) {
+            $length = null;
+            $code = $response->getStatusCode();
+            if ($request->getMethod() === 'HEAD' || ($code >= 100 && $code < 200) || $code == 204 || $code == 304) {
+                $length = 0;
+            } elseif (\strtolower($response->getHeaderLine('Transfer-Encoding')) === 'chunked') {
+                $body = new ChunkedDecoder($body);
+            } elseif ($response->hasHeader('Content-Length')) {
+                $length = (int) $response->getHeaderLine('Content-Length');
+            }
+
+            $deferred->resolve($response->withBody(new ReadableBodyStream($body, $length)));
         });
 
         if ($body instanceof ReadableStreamInterface) {

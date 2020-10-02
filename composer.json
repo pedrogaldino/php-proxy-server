@@ -15,17 +15,21 @@
             "name": "Pedro Galdino",
             "email": "eu@pedrogaldino.com",
             "role": "developer"
+        },
+        {
+            "name": "Rauny Henrique",
+            "email": "rauny22@gmail.com",
+            "role": "developer"
         }
     ],
     "require": {
-        "react/event-loop": "^1.1",
-        "react/http": "^0.8.6",
+        "php": ">=7.0",
+        "react/event-loop": "^1.1.1",
+        "react/http": "^1.1",
         "guzzlehttp/guzzle": "~6.0",
         "tightenco/collect": "^7.3",
         "ext-json": "*",
-        "react/http-client": "^0.5.10",
-        "clue/buzz-react": "^2.8",
-        "clue/http-proxy-react": "^1.4"
+        "clue/http-proxy-react": "^1.5"
     },
     "autoload": {
         "psr-4": { "Galdino\\Proxy\\" : "src/" }
