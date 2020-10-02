@@ -9,9 +9,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use React\EventLoop\Factory;
 use React\EventLoop\TimerInterface;
 use React\Http\Middleware\LimitConcurrentRequestsMiddleware;
-use React\Http\Response;
-use React\Http\Server;
-use React\Http\StreamingServer;
+use React\Http\Middleware\StreamingRequestMiddleware;
+use React\Http\Message\Response;
 use React\Promise\Promise;
 use React\Socket\ConnectionInterface;
 use React\Socket\Connector;
@@ -139,6 +138,25 @@ class ProxyServer
         );
     }
 
+    private function prepareNativeResponseFromException(\Exception $exception)
+    {
+        $statusCode = $exception->getCode();
+        $headers = [
+            'Content-Type' => 'application/json'
+        ];
+        $body = [
+            'error' => true,
+            'message' => $exception->getMessage(),
+            'type' => get_class($exception)
+        ];
+
+        return new Response(
+            $statusCode,
+            $headers,
+            json_encode($body)
+        );
+    }
+
     private function proxyRequest(Request $request) : Promise
     {
         return new Promise(function($resolve, $reject) use($request) {
@@ -214,14 +232,17 @@ class ProxyServer
     public function getResponse(ServerRequestInterface $request)
     {
         return new Promise(function ($resolve, $reject) use ($request) {
+
+            $body = $request->getBody();
+
             $rawBody = null;
             $requestDateStartTime = date('Y-m-d H:i:s');
 
-            $request->getBody()->on('data', function ($data) use (&$rawBody) {
+            $body->on('data', function ($data) use (&$rawBody) {
                 $rawBody .= $data;
             });
 
-            $request->getBody()->on('end', function () use ($resolve, $reject, $request, &$rawBody, $requestDateStartTime){
+            $body->on('end', function () use ($resolve, $reject, $request, &$rawBody, $requestDateStartTime){
                 $request = $this->prepareRequest($request, $rawBody, $requestDateStartTime);
 
                 $this
@@ -230,7 +251,7 @@ class ProxyServer
                     ->otherwise($reject);
             });
 
-            $request->getBody()->on('error', function (\Exception $exception) use ($resolve, $reject, &$contentLength) {
+            $body->on('error', function (\Exception $exception) use ($resolve, $reject, &$contentLength) {
                 $onError = $this
                     ->interceptor
                     ->onError($exception);
@@ -244,7 +265,9 @@ class ProxyServer
                         $this->prepareNativeResponse($onError)
                     );
                 } else {
-                    $reject($exception);
+                    $resolve(
+                        $this->prepareNativeResponseFromException($exception)
+                    );
                 }
             });
         });
@@ -258,10 +281,12 @@ class ProxyServer
                 'verify_peer_name' => false
             ),
             'happy_eyeballs' => false,
-            'timeout' => 600.0
+            'timeout' => 300.0
         ]);
 
-        $server = new StreamingServer([
+        $server = new \React\Http\Server(
+            $this->getLoop(),
+            new StreamingRequestMiddleware(),
             new LimitConcurrentRequestsMiddleware($this->concurrentRequestsLimit),
             function (ServerRequestInterface $request) use ($connector) {
                 if ($request->getMethod() !== 'CONNECT') {
@@ -287,7 +312,7 @@ class ProxyServer
                     }
                 );
             }
-        ]);
+        );
 
         $socket = new \React\Socket\Server('0.0.0.0:8001', $this->getLoop(), [
             'tls' => array(
@@ -319,12 +344,14 @@ class ProxyServer
 
     protected function startTlsHelloServer()
     {
-        $server = new StreamingServer([
+        $server = new \React\Http\Server(
+            $this->getLoop(),
+            new StreamingRequestMiddleware(),
             new LimitConcurrentRequestsMiddleware($this->concurrentRequestsLimit),
             function (ServerRequestInterface $request) {
                 return $this->getResponse($request);
             }
-        ]);
+        );
 
         $socket = new \React\Socket\Server('0.0.0.0:8002', $this->getLoop(), [
             'tls' => array(

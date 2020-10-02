@@ -2,9 +2,8 @@
 
 namespace Galdino\Proxy\Server\Traits;
 
-
-trait ManipulateHeaders {
-
+trait ManipulateHeaders
+{
     protected $headers = [];
 
     public function addHeader($name, $value)

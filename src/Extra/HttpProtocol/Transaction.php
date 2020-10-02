@@ -1,23 +1,22 @@
 <?php
 
-
 namespace Galdino\Proxy\Extra\HttpProtocol;
 
-use Clue\React\Buzz\Io\Sender;
-use Clue\React\Buzz\Message\MessageFactory;
-use Clue\React\Buzz\Message\ResponseException;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\UriInterface;
+use React\Http\Io\Sender;
 use React\EventLoop\LoopInterface;
+use React\Http\Message\ResponseException;
 use React\Promise\Deferred;
 use React\Promise\PromiseInterface;
 use React\Stream\ReadableStreamInterface;
+use RingCentral\Psr7\Request;
+use RingCentral\Psr7\Uri;
 
-class Transaction extends \Clue\React\Buzz\Io\Transaction
+class Transaction extends \React\Http\Io\Transaction
 {
     private $sender;
-    private $messageFactory;
     private $loop;
 
     // context: http.timeout (ini_get('default_socket_timeout'): 60)
@@ -34,16 +33,19 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
 
     private $streaming = false;
 
-    public function __construct(Sender $sender, MessageFactory $messageFactory, LoopInterface $loop)
+    private $maximumSize = 16777216; // 16 MiB = 2^24 bytes
+
+    public function __construct(Sender $sender, LoopInterface $loop)
     {
         $this->sender = $sender;
-        $this->messageFactory = $messageFactory;
         $this->loop = $loop;
+
+        parent::__construct($sender, $loop);
     }
 
     /**
      * @param array $options
-     * @return \Clue\React\Buzz\Io\Transaction returns new instance, without modifying existing instance
+     * @return self returns new instance, without modifying existing instance
      */
     public function withOptions(array $options)
     {
@@ -52,7 +54,7 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
             if (property_exists($transaction, $name)) {
                 // restore default value if null is given
                 if ($value === null) {
-                    $default = new self($this->sender, $this->messageFactory, $this->loop);
+                    $default = new self($this->sender, $this->loop);
                     $value = $default->$name;
                 }
 
@@ -74,13 +76,29 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
 
         $deferred->numRequests = 0;
 
-        $this->next($request, $deferred)->then(
-            array($deferred, 'resolve'),
-            array($deferred, 'reject')
-        );
-
         // use timeout from options or default to PHP's default_socket_timeout (60)
         $timeout = (float)($this->timeout !== null ? $this->timeout : ini_get("default_socket_timeout"));
+
+        $loop = $this->loop;
+        $this->next($request, $deferred)->then(
+            function (ResponseInterface $response) use ($deferred, $loop, &$timeout) {
+                if (isset($deferred->timeout)) {
+                    $loop->cancelTimer($deferred->timeout);
+                    unset($deferred->timeout);
+                }
+                $timeout = -1;
+                $deferred->resolve($response);
+            },
+            function ($e) use ($deferred, $loop, &$timeout) {
+                if (isset($deferred->timeout)) {
+                    $loop->cancelTimer($deferred->timeout);
+                    unset($deferred->timeout);
+                }
+                $timeout = -1;
+                $deferred->reject($e);
+            }
+        );
+
         if ($timeout < 0) {
             return $deferred->promise();
         }
@@ -88,8 +106,10 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
         $body = $request->getBody();
         if ($body instanceof ReadableStreamInterface && $body->isReadable()) {
             $that = $this;
-            $body->on('close', function () use ($that, $deferred, $timeout) {
-                $that->applyTimeout($deferred, $timeout);
+            $body->on('close', function () use ($that, $deferred, &$timeout) {
+                if ($timeout >= 0) {
+                    $that->applyTimeout($deferred, $timeout);
+                }
             });
         } else {
             $this->applyTimeout($deferred, $timeout);
@@ -106,7 +126,7 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
      */
     public function applyTimeout(Deferred $deferred, $timeout)
     {
-        $timer = $this->loop->addTimer($timeout, function () use ($timeout, $deferred) {
+        $deferred->timeout = $this->loop->addTimer($timeout, function () use ($timeout, $deferred) {
             $deferred->reject(new \RuntimeException(
                 'Request timed out after ' . $timeout . ' seconds'
             ));
@@ -114,13 +134,6 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
                 $deferred->pending->cancel();
                 unset($deferred->pending);
             }
-        });
-
-        $loop = $this->loop;
-        $deferred->promise()->then(function () use ($loop, $timer){
-            $loop->cancelTimer($timer);
-        }, function () use ($loop, $timer) {
-            $loop->cancelTimer($timer);
         });
     }
 
@@ -157,20 +170,36 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
     {
         $stream = $response->getBody();
 
+        $size = $stream->getSize();
+        if ($size !== null && $size > $this->maximumSize) {
+            $stream->close();
+            return \React\Promise\reject(new \OverflowException(
+                'Response body size of ' . $size . ' bytes exceeds maximum of ' . $this->maximumSize . ' bytes',
+                \defined('SOCKET_EMSGSIZE') ? \SOCKET_EMSGSIZE : 0
+            ));
+        }
+
         // body is not streaming => already buffered
         if (!$stream instanceof ReadableStreamInterface) {
             return \React\Promise\resolve($response);
         }
 
         // buffer stream and resolve with buffered body
-        $messageFactory = $this->messageFactory;
-        $promise = \React\Promise\Stream\buffer($stream)->then(
-            function ($body) use ($response, $messageFactory) {
-                return $response->withBody($messageFactory->body($body));
+        $maximumSize = $this->maximumSize;
+        $promise = \React\Promise\Stream\buffer($stream, $maximumSize)->then(
+            function ($body) use ($response) {
+                return $response->withBody(\RingCentral\Psr7\stream_for($body));
             },
-            function ($e) use ($stream) {
+            function ($e) use ($stream, $maximumSize) {
                 // try to close stream if buffering fails (or is cancelled)
                 $stream->close();
+
+                if ($e instanceof \OverflowException) {
+                    $e = new \OverflowException(
+                        'Response body size exceeds maximum of ' . $maximumSize . ' bytes',
+                        \defined('SOCKET_EMSGSIZE') ? \SOCKET_EMSGSIZE : 0
+                    );
+                }
 
                 throw $e;
             }
@@ -182,11 +211,11 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
     }
 
     /**
+     * @internal
      * @param ResponseInterface $response
      * @param RequestInterface $request
-     * @param $deferred
+     * @throws ResponseException
      * @return ResponseInterface|PromiseInterface
-     * @internal
      */
     public function onResponse(ResponseInterface $response, RequestInterface $request, $deferred)
     {
@@ -210,13 +239,13 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
     /**
      * @param ResponseInterface $response
      * @param RequestInterface $request
-     * @param Deferred $deferred
      * @return PromiseInterface
+     * @throws \RuntimeException
      */
     private function onResponseRedirect(ResponseInterface $response, RequestInterface $request, Deferred $deferred)
     {
         // resolve location relative to last request URI
-        $location = $this->messageFactory->uriRelative($request->getUri(), $response->getHeaderLine('Location'));
+        $location = Uri::resolve($request->getUri(), $response->getHeaderLine('Location'));
 
         $request = $this->makeRedirectRequest($request, $location);
         $this->progress('redirect', array($request));
@@ -249,7 +278,7 @@ class Transaction extends \Clue\React\Buzz\Io\Transaction
         // naïve approach..
         $method = ($request->getMethod() === 'HEAD') ? 'HEAD' : 'GET';
 
-        return $this->messageFactory->request($method, $location, $request->getHeaders());
+        return new Request($method, $location, $request->getHeaders());
     }
 
     private function progress($name, array $args = array())

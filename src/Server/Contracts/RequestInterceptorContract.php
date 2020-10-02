@@ -6,8 +6,8 @@ use Galdino\Proxy\Server\Request;
 use Galdino\Proxy\Server\Response;
 use React\Promise\Promise;
 
-interface RequestInterceptorContract {
-
+interface RequestInterceptorContract
+{
     /**
      * Called when the server receive a new request
      * @param Request $request The request object. You can manipulate it

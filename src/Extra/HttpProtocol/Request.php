@@ -1,8 +1,6 @@
 <?php
 
-
 namespace Galdino\Proxy\Extra\HttpProtocol;
-
 
 class Request extends \RingCentral\Psr7\Request
 {

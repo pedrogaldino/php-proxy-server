@@ -1,9 +1,8 @@
 <?php
 
-
 namespace Galdino\Proxy\Server;
 
-use Clue\React\Buzz\Message\ResponseException;
+use React\Http\Message\ResponseException;
 use Galdino\Proxy\Server\Contracts\ManipulateCookiesContract;
 use Galdino\Proxy\Server\Contracts\ManipulateHeadersContract;
 use Galdino\Proxy\Server\Contracts\RequestInterceptorContract;
@@ -298,6 +297,7 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
             $currentProxy = null;
             $proxyUrl = null;
+
             if (count($this->proxyList)) {
                 $currentProxy = $this->proxyList[$currentProxyIndex];
 
@@ -310,14 +310,11 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
             $browser = new \Galdino\Proxy\Extra\Browser($loop, $proxyUrl);
 
-            $defaultOptions = [
-                'timeout' => 7200,
-                'followRedirects' => false,
-                'obeySuccessCode' => true,
-                'streaming' => false
-            ];
-
-            $browser = $browser->withOptions($defaultOptions);
+            $browser = $browser
+                ->withTimeout(3600.0)
+                ->withFollowRedirects(false)
+                ->withRejectErrorResponse(true)
+                ->withResponseBuffer(256 * 1024 * 1024);
 
             $response = new Response();
 
@@ -344,9 +341,14 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                         ->setBody($browserResponse->getBody()->getContents());
 
                     $resolve($response);
-                }, function (\Exception $exception) use($response, $resolve, $reject) {
+                }, function (\Exception $exception) use($response, $resolve, $reject, $currentProxy) {
 
-                    print 'Request error ' . $exception->getMessage() . PHP_EOL;
+                    print 'Request error: ' . $exception->getMessage() . PHP_EOL;
+                    print $this->getMethod() . ' -> ' . $this->getUri() . PHP_EOL;
+
+                    if (!empty($currentProxy)) {
+                        print date('Y-m-d H:i:s') . ' | Proxy used: #' . $currentProxy['id'] . ' - ' . $currentProxy['proxy_url'] . PHP_EOL;
+                    }
 
                     dump($exception);
 
@@ -391,14 +393,27 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
             })
             ->otherwise(function($result) use ($loop, $interceptor, &$currentProxyIndex, $callback) {
 
+                $exception = $result[0];
+                $response = $result[1];
+
+                $isToIgnoreRetryProxyRequest = false;
+
+                if (!empty($exception->getMessage()))
+                {
+                    if (str_contains($exception->getMessage(), 'Connection ended before receiving response'))
+                    {
+                        $isToIgnoreRetryProxyRequest = true;
+                    }
+                }
+
                 $currentProxyIndex++;
 
-                if (($currentProxyIndex + 1) <= count($this->getProxyList()))
+                if (($currentProxyIndex + 1) <= count($this->getProxyList()) && !$isToIgnoreRetryProxyRequest)
                 {
                     $this->setRequestDateStartTime(date('Y-m-d H:i:s'));
 
                     $interceptor
-                        ->beforeRetryProxyRequest($this, $result[1])
+                        ->beforeRetryProxyRequest($this, $response)
                         ->then(function () use ($loop, $interceptor, $callback, $currentProxyIndex) {
                             $this->makeRequest($loop, $interceptor, $callback, $currentProxyIndex);
                         });

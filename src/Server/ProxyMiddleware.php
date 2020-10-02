@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Galdino\Proxy\Server;
 
 use Galdino\Proxy\Server\Contracts\RequestInterceptorContract;
@@ -8,7 +7,6 @@ use React\Promise\Promise;
 
 class ProxyMiddleware implements RequestInterceptorContract
 {
-
     public function onError($exception, Request $request = null, Response $response = null) : Promise
     {
         return new \React\Promise\Promise(function($resolve, $reject) use($request, $response) {
@@ -48,6 +46,4 @@ class ProxyMiddleware implements RequestInterceptorContract
             $resolve([$request, $response]);
         });
     }
-
-
 }

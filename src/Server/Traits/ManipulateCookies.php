@@ -2,7 +2,8 @@
 
 namespace Galdino\Proxy\Server\Traits;
 
-trait ManipulateCookies {
+trait ManipulateCookies
+{
     use ManipulateHeaders;
 
     public function addCookie($name, $value)
