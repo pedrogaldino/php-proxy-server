@@ -334,10 +334,12 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                         }
                     }
 
+                    $responseHeaders = $this->removeInvalidHeaders($browserResponse->getHeaders());
+
                     $response
                         ->setUri($this->getUri())
                         ->setStatusCode($browserResponse->getStatusCode())
-                        ->mergeHeaders($browserResponse->getHeaders())
+                        ->mergeHeaders($responseHeaders)
                         ->setBody($browserResponse->getBody()->getContents());
 
                     $resolve($response);
@@ -423,6 +425,24 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
                     $callback($result);
                 }
             });
+    }
+
+    public function removeInvalidHeaders($headers)
+    {
+        $responseHeaders = $headers;
+
+        if (is_array($responseHeaders))
+        {
+            foreach ($responseHeaders as $key => $value)
+            {
+                if (preg_match('/(.*\?\?\?.*)|([^\x20-\x7E]+)/', $key))
+                {
+                    unset($responseHeaders[$key]);
+                }
+            }
+        }
+
+        return $responseHeaders;
     }
 
     public function getResponse(LoopInterface $loop, RequestInterceptorContract $interceptor) : Promise
