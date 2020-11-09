@@ -427,6 +427,11 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
             });
     }
 
+    private function hasInvalidValue($value)
+    {
+        return preg_match('/(.*\?\?\?.*)|([^\x20-\x7E]+)/', $value);
+    }
+
     public function removeInvalidHeaders($headers)
     {
         $responseHeaders = $headers;
@@ -435,7 +440,27 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
         {
             foreach ($responseHeaders as $key => $value)
             {
-                if (preg_match('/(.*\?\?\?.*)|([^\x20-\x7E]+)/', $key))
+                $isInvalidHeader = false;
+
+                if ($this->hasInvalidValue($key))
+                {
+                    $isInvalidHeader = true;
+                }
+                else
+                {
+                    if (is_array($value))
+                    {
+                        foreach ($value as $item)
+                        {
+                            if ($this->hasInvalidValue($item))
+                            {
+                                $isInvalidHeader = true;
+                            }
+                        }
+                    }
+                }
+
+                if ($isInvalidHeader)
                 {
                     unset($responseHeaders[$key]);
                 }
