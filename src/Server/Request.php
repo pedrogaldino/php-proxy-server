@@ -320,6 +320,10 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
             print 'Making the request' . PHP_EOL;
 
+            if (!empty($currentProxy)) {
+                print date('Y-m-d H:i:s') . ' | Proxy: #' . $currentProxy['id'] . ' - ' . $currentProxy['proxy_url'] . PHP_EOL;
+            }
+
             $browser
                 ->request($this->getMethod(), $this->getUri(), $this->getHeaders(), $this->getBody())
                 ->then(function (ResponseInterface $browserResponse) use ($response, $resolve, $reject) {
@@ -347,10 +351,6 @@ class Request implements ManipulateHeadersContract, ManipulateCookiesContract
 
                     print 'Request error: ' . $exception->getMessage() . PHP_EOL;
                     print $this->getMethod() . ' -> ' . $this->getUri() . PHP_EOL;
-
-                    if (!empty($currentProxy)) {
-                        print date('Y-m-d H:i:s') . ' | Proxy used: #' . $currentProxy['id'] . ' - ' . $currentProxy['proxy_url'] . PHP_EOL;
-                    }
 
                     dump($exception);
 
